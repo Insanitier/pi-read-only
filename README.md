@@ -12,15 +12,17 @@ without the plan workflow.
 /read-only            Open the Read-Only mode menu
 ```
 
-The TUI menu shows the current state and offers:
+The menu uses pi's built-in selector style (divider lines, accent title,
+SelectList with the built-in theme), rendered like pi's own /settings and
+/model selectors, and offers:
 
 - **Start / Stop read-only mode** — toggles the restricted mode. Entering
   snapshots the currently active tools and restores them on exit.
-- **Configure read-only tools…** — a searchable multi-select of every tool
-  (10-row viewport, same selector as pi-plan-mode). It controls which tools
-  stay available while read-only mode is active. Changes apply immediately
-  when the mode is active, otherwise at the next start. `edit`, `write`, and
-  `update_plan` are always blocked and shown as unavailable.
+- **Configure read-only tools…** — a filterable list of every tool. It
+  controls which tools stay available while read-only mode is active;
+  toggling a tool applies immediately when the mode is active, otherwise at
+  the next start. `edit`, `write`, and `update_plan` are always blocked and
+  shown as unavailable.
 
 ## What gets restricted
 

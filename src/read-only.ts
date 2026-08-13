@@ -3,7 +3,7 @@ import type {
 	ExtensionContext,
 	ToolInfo,
 } from "@earendil-works/pi-coding-agent";
-import { showReadOnlyMenu } from "./menu.js";
+import { showReadOnlyMenu } from "./framed-menu.js";
 import { buildReadOnlyPrompt } from "./prompt.js";
 import { STATE_ENTRY_TYPE, restoreReadOnlyState, type ReadOnlyState } from "./state.js";
 import {
@@ -23,19 +23,8 @@ const DEFAULT_TOOLS = ["read", "bash", "edit", "write"];
 export default function readOnlyMode(pi: ExtensionAPI) {
 	let state: ReadOnlyState = { enabled: false };
 	let previousTools: string[] | undefined;
-	let menuGeneration = 0;
-	let menuController = new AbortController();
 
 	const persistState = () => pi.appendEntry<ReadOnlyState>(STATE_ENTRY_TYPE, state);
-
-	const captureMenuLifecycle = () => {
-		const generation = menuGeneration;
-		const controller = menuController;
-		return {
-			signal: controller.signal,
-			isCurrent: () => generation === menuGeneration && !controller.signal.aborted,
-		};
-	};
 
 	pi.registerCommand("read-only", {
 		description: "Open the Read-Only mode menu to start/stop the mode or configure its tools",
@@ -59,9 +48,6 @@ export default function readOnlyMode(pi: ExtensionAPI) {
 	});
 
 	pi.on("session_start", async (_event, ctx) => {
-		menuGeneration += 1;
-		menuController.abort(new DOMException("Read-only session replaced", "AbortError"));
-		menuController = new AbortController();
 		previousTools = undefined;
 		state = restoreReadOnlyState(ctx.sessionManager.getBranch());
 		if (state.enabled) {
@@ -71,8 +57,6 @@ export default function readOnlyMode(pi: ExtensionAPI) {
 	});
 
 	pi.on("session_shutdown", async (_event, ctx) => {
-		menuGeneration += 1;
-		menuController.abort(new DOMException("Read-only session shut down", "AbortError"));
 		persistState();
 		if (state.enabled) restoreTools();
 		clearUi(ctx);
@@ -126,7 +110,6 @@ export default function readOnlyMode(pi: ExtensionAPI) {
 			ctx.ui.notify("Read-only mode is already active.", "info");
 			return;
 		}
-		menuGeneration += 1;
 		previousTools = safeGetActiveTools();
 		state = { ...state, enabled: true };
 		applyReadOnlyTools();
@@ -140,7 +123,6 @@ export default function readOnlyMode(pi: ExtensionAPI) {
 			ctx.ui.notify("Read-only mode is not active.", "info");
 			return;
 		}
-		menuGeneration += 1;
 		state = { ...state, enabled: false };
 		restoreTools();
 		persistState();
@@ -235,8 +217,6 @@ export default function readOnlyMode(pi: ExtensionAPI) {
 	}
 
 	async function showMenu(ctx: ExtensionContext) {
-		const lifecycle = captureMenuLifecycle();
-		if (!lifecycle.isCurrent() || lifecycle.signal.aborted) return;
 		const tools = safeGetAllTools().sort(compareTools);
 		await showReadOnlyMenu(ctx, {
 			isEnabled: () => state.enabled,
@@ -264,14 +244,11 @@ export default function readOnlyMode(pi: ExtensionAPI) {
 					...(disabledReason ? { disabledReason } : {}),
 				};
 			}),
-			...lifecycle,
-			toggle: (signal) => {
-				if (signal.aborted || !lifecycle.isCurrent()) return;
+			toggle: () => {
 				if (state.enabled) stopReadOnly(ctx);
 				else startReadOnly(ctx);
 			},
-			setTools: (names, signal) => {
-				if (signal.aborted || !lifecycle.isCurrent()) return;
+			setTools: (names) => {
 				setSelectedTools(names);
 				ctx.ui.notify("Read-only tool selection updated.", "info");
 			},
