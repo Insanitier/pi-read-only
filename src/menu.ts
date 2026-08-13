@@ -10,7 +10,7 @@ export interface ReadOnlyTool {
 }
 
 interface ReadOnlyMenuOptions {
-	enabled: boolean;
+	isEnabled(): boolean;
 	toolSummary(selectedNames: ReadonlySet<string>): string;
 	getSelectedNames(): ReadonlySet<string>;
 	tools: readonly ReadOnlyTool[];
@@ -30,29 +30,32 @@ export async function showReadOnlyMenu(
 	const menu = defineMenu<undefined, Screen, Action, ExtensionContext>({
 		start: "main",
 		screens: {
-			main: () => ({
-				kind: "actions",
-				title: "Read-only mode",
-				lines: [
-					options.enabled
-						? "Status: Active — file mutations are blocked."
-						: "Status: Off — normal tools are active.",
-					options.toolSummary(selectedNames),
-				],
-				items: [
-					options.enabled
-						? { id: "stop", label: "Stop read-only mode", action: "toggle" }
-						: { id: "start", label: "Start read-only mode", action: "toggle" },
-					{ id: "tools", label: "Configure read-only tools…", to: "tools" },
-				],
-				hint: "close",
-			}),
+			main: () => {
+				const enabled = options.isEnabled();
+				return {
+					kind: "actions",
+					title: "Read-only mode",
+					lines: [
+						enabled
+							? "Status: Active — file mutations are blocked."
+							: "Status: Off — normal tools are active.",
+						options.toolSummary(selectedNames),
+					],
+					items: [
+						enabled
+							? { id: "stop", label: "Stop read-only mode", action: "toggle" }
+							: { id: "start", label: "Start read-only mode", action: "toggle" },
+						{ id: "tools", label: "Configure read-only tools…", to: "tools" },
+					],
+					hint: "close",
+				};
+			},
 			tools: () => ({
 				kind: "multiSelect",
 				title: "Read-only tools",
 				lines: [
-					options.enabled
-						? "Changes apply immediately."
+					options.isEnabled()
+						? "Changes apply immediately after Save."
 						: "Changes apply when you start read-only mode.",
 					"Non-built-in tools run at user risk.",
 				],
@@ -68,7 +71,7 @@ export async function showReadOnlyMenu(
 					...(tool.disabledReason ? { disabledReason: tool.disabledReason } : {}),
 				})),
 				action: "toggle-tool",
-				actions: [{ id: "done", label: "Done", action: "set-tools" }],
+				actions: [{ id: "done", label: "Save selection", action: "set-tools" }],
 				hint: "back",
 			}),
 		},
@@ -76,7 +79,7 @@ export async function showReadOnlyMenu(
 			toggle: async ({ signal }) => {
 				if (signal.aborted || !options.isCurrent()) return { kind: "rejected" };
 				options.toggle(signal);
-				return { kind: "close" };
+				return { kind: "stay" };
 			},
 			"toggle-tool": async ({ itemId, selected, signal }) => {
 				if (signal.aborted || !options.isCurrent()) return { kind: "rejected" };
@@ -89,7 +92,7 @@ export async function showReadOnlyMenu(
 			"set-tools": async ({ signal }) => {
 				if (signal.aborted || !options.isCurrent()) return { kind: "rejected" };
 				options.setTools(Array.from(selectedNames), signal);
-				return { kind: "close" };
+				return { kind: "to", screen: "main" };
 			},
 		},
 	});

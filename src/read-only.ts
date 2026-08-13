@@ -239,13 +239,18 @@ export default function readOnlyMode(pi: ExtensionAPI) {
 		if (!lifecycle.isCurrent() || lifecycle.signal.aborted) return;
 		const tools = safeGetAllTools().sort(compareTools);
 		await showReadOnlyMenu(ctx, {
-			enabled: state.enabled,
+			isEnabled: () => state.enabled,
 			getSelectedNames: () => selectedToolNames(tools),
-			toolSummary: (selectedNames) =>
-				`When active: ${tools
-					.filter((tool) => selectedNames.has(tool.name) && canSelectToolInPlanMode(tool))
-					.map((tool) => tool.name)
-					.join(", ")}`,
+			toolSummary: (selectedNames) => {
+				const names = tools
+					.filter(
+						(tool) => selectedNames.has(tool.name) && canSelectToolInPlanMode(tool),
+					)
+					.map((tool) => tool.name);
+				if (names.length === 0) return "When active: no tools";
+				if (names.length <= 6) return `When active: ${names.join(", ")}`;
+				return `When active: ${names.length} tools — ${names.slice(0, 6).join(", ")}, …`;
+			},
 			tools: tools.map((tool) => {
 				const selectable = canSelectToolInPlanMode(tool);
 				const policy = toolPolicyLabel(tool);
