@@ -268,11 +268,5 @@ function toolPolicyLabel(tool: ToolInfo) {
 	if (policy === "read-only") return "built-in read-only";
 	if (policy === "limited") return "built-in limited";
 	if (policy === "blocked") return "built-in blocked";
-	return `user opt-in: ${toolSourceLabel(tool)}`;
-}
-
-function toolSourceLabel(tool: ToolInfo) {
-	const sourceInfo = tool.sourceInfo;
-	const source = `${sourceInfo.scope}/${sourceInfo.source}`;
-	return sourceInfo.path ? `${source} ${sourceInfo.path}` : source;
+	return "extension opt-in";
 }
