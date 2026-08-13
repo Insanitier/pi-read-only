@@ -1,0 +1,42 @@
+{
+	"name": "pi-read-only",
+	"version": "0.1.0",
+	"description": "Pi extension that adds a /read-only collaboration mode with a TUI menu for starting/stopping restricted read-only mode and controlling which tools stay available.",
+	"type": "module",
+	"license": "MIT",
+	"keywords": [
+		"pi",
+		"pi-extension",
+		"pi-package",
+		"read-only",
+		"readonly",
+		"safety"
+	],
+	"files": [
+		"src",
+		"README.md",
+		"LICENSE"
+	],
+	"pi": {
+		"extensions": [
+			"./src/index.ts"
+		]
+	},
+	"scripts": {
+		"typecheck": "tsc --noEmit"
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*"
+	},
+	"dependencies": {
+		"@narumitw/pi-tui-kit": "^0.49.3"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.5",
+		"typescript": "^5.9.2"
+	},
+	"engines": {
+		"node": ">=20.0.0"
+	}
+}
