@@ -40,6 +40,7 @@ export const SAFE_BUILTIN_PLAN_TOOLS = new Set(["read", "bash", "grep", "find", 
 export type PlanModeToolPolicy = "read-only" | "limited" | "user-opt-in" | "blocked";
 
 const BLOCKED_BUILTIN_TOOLS = new Set(["edit", "write"]);
+const KNOWN_TOOL_NAMES = new Set([...SAFE_BUILTIN_PLAN_TOOLS, ...BLOCKED_BUILTIN_TOOLS]);
 const MUTATING_COMMANDS = new Set([
 	"rm",
 	"rmdir",
@@ -108,11 +109,50 @@ export function isBuiltinTool(tool: ToolInfo) {
 	return tool.sourceInfo.source === "builtin";
 }
 
+/**
+ * Collapse tools that one extension registered under several names with an
+ * identical definition. FFF does this: it registers `ffgrep` before the session
+ * starts (so historical tool rows still render) and `grep` once override mode
+ * activates. pi cannot unregister a tool, so both stay in the registry and a UI
+ * that lists every registered tool would show one capability twice. Prefers the
+ * name the read-only policy already knows (`grep` over `ffgrep`).
+ */
+export function withoutDuplicateTools(tools: ToolInfo[]) {
+	const bySignature = new Map<string, ToolInfo[]>();
+	for (const tool of tools) {
+		const signature = JSON.stringify([tool.sourceInfo.path, tool.description, tool.parameters]);
+		const group = bySignature.get(signature);
+		if (group) group.push(tool);
+		else bySignature.set(signature, [tool]);
+	}
+	const kept = new Set<string>();
+	for (const group of bySignature.values()) {
+		group.sort(compareDuplicateTools);
+		const representative = group[0];
+		if (representative) kept.add(representative.name);
+	}
+	return tools.filter((tool) => kept.has(tool.name));
+}
+
+function compareDuplicateTools(left: ToolInfo, right: ToolInfo) {
+	const leftKnown = KNOWN_TOOL_NAMES.has(left.name);
+	const rightKnown = KNOWN_TOOL_NAMES.has(right.name);
+	if (leftKnown !== rightKnown) return leftKnown ? -1 : 1;
+	if (left.name.length !== right.name.length) return left.name.length - right.name.length;
+	return left.name.localeCompare(right.name);
+}
+
 export function classifyPlanModeTool(tool: ToolInfo): PlanModeToolPolicy {
-	if (!isBuiltinTool(tool)) return "user-opt-in";
+	// Policy is keyed by name for the tools pi ships: an extension can shadow a
+	// built-in name (pi resolves the registry by name, last registration wins),
+	// and the name still describes the same capability. FFF's override of
+	// `grep`/`find` is the case this exists for.
 	if (BLOCKED_BUILTIN_TOOLS.has(tool.name)) return "blocked";
 	if (tool.name === "bash") return "limited";
-	return SAFE_BUILTIN_PLAN_TOOLS.has(tool.name) ? "read-only" : "blocked";
+	if (SAFE_BUILTIN_PLAN_TOOLS.has(tool.name)) return "read-only";
+	// Unknown names: genuine built-ins are blocked by default, extension and
+	// custom tools stay user opt-in.
+	return isBuiltinTool(tool) ? "blocked" : "user-opt-in";
 }
 
 export function canSelectToolInPlanMode(tool: ToolInfo) {

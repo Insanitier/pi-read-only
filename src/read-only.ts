@@ -13,6 +13,7 @@ import {
 	isBuiltinTool,
 	readCommand,
 	SAFE_BUILTIN_PLAN_TOOLS,
+	withoutDuplicateTools,
 } from "./tool-policy.js";
 
 const STATUS_KEY = "pi-read-only";
@@ -75,7 +76,7 @@ export default function readOnlyMode(pi: ExtensionAPI) {
 		if (calledTool && classifyPlanModeTool(calledTool) === "blocked") {
 			return {
 				block: true,
-				reason: `Read-only mode blocks built-in tool '${event.toolName}' because its policy class is blocked.`,
+				reason: `Read-only mode blocks tool '${event.toolName}' because its policy class is blocked.`,
 			};
 		}
 		if (!calledTool && BLOCKED_BUILTIN_TOOLS.has(event.toolName)) {
@@ -154,7 +155,7 @@ export default function readOnlyMode(pi: ExtensionAPI) {
 		}
 		return new Set(
 			tools
-				.filter((tool) => isBuiltinTool(tool) && SAFE_BUILTIN_PLAN_TOOLS.has(tool.name))
+				.filter((tool) => SAFE_BUILTIN_PLAN_TOOLS.has(tool.name) && canSelectToolInPlanMode(tool))
 				.map((tool) => tool.name),
 		);
 	}
@@ -192,7 +193,7 @@ export default function readOnlyMode(pi: ExtensionAPI) {
 
 	function safeGetAllTools() {
 		try {
-			return pi.getAllTools();
+			return withoutDuplicateTools(pi.getAllTools());
 		} catch {
 			return [];
 		}
@@ -265,8 +266,10 @@ function compareTools(left: ToolInfo, right: ToolInfo) {
 
 function toolPolicyLabel(tool: ToolInfo) {
 	const policy = classifyPlanModeTool(tool);
-	if (policy === "read-only") return "built-in read-only";
-	if (policy === "limited") return "built-in limited";
-	if (policy === "blocked") return "built-in blocked";
-	return "extension opt-in";
+	if (policy === "user-opt-in") return "extension opt-in";
+	// A shadowed built-in keeps its name-based policy but is not built-in-source.
+	const scope = isBuiltinTool(tool) ? "built-in" : "overridden";
+	if (policy === "read-only") return `${scope} read-only`;
+	if (policy === "limited") return `${scope} limited`;
+	return `${scope} blocked`;
 }

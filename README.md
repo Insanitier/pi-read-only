@@ -22,14 +22,16 @@ SelectList with the built-in theme), rendered like pi's own /settings and
   controls which tools stay available while read-only mode is active;
   toggling a tool applies immediately when the mode is active, otherwise at
   the next start. `edit`, `write`, and `update_plan` are always blocked and
-  shown as unavailable.
+  shown as unavailable. A tool an extension registered under several names with
+  an identical definition (FFF's `ffgrep` alias of `grep`) is listed once.
 
 ## What gets restricted
 
 While read-only mode is active:
 
-- Active tools are limited to the selected set (default: the safe built-ins
-  `read`, `bash`, `grep`, `find`, `ls`).
+- Active tools are limited to the selected set (default: the safe tools
+  `read`, `bash`, `grep`, `find`, `ls`, matched by name so extension overrides
+  such as FFF's `grep`/`find` count too).
 - `edit`, `write`, and `update_plan` tool calls are blocked.
 - `bash` uses a fail-closed policy: read-only command whitelist, no
   redirects, no shell expansion/substitution, no background jobs, no mutating
@@ -38,7 +40,9 @@ While read-only mode is active:
   `npm test`, `npm run typecheck`, and `cargo test`.
 - The agent system prompt gains a Read-Only Mode instruction block.
 - Extension and custom tools are disabled unless explicitly enabled in the
-  selector (user opt-in at user risk).
+  selector (user opt-in at user risk). Exception: a tool that shadows a
+  built-in name keeps that name's policy, so an overridden `grep`/`find` stays
+  available while an overridden `edit`/`write` stays blocked.
 
 State (active + tool selection) is persisted per session, so resume and
 compaction keep the exact mode and selection. The statusline shows
